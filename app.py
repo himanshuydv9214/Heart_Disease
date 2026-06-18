@@ -2,155 +2,70 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# Load files
-model = joblib.load("ford_model.pkl")
-scaler = joblib.load("ford_scaler.pkl")
-feature_columns = joblib.load("feature_columns.pkl")
+# Load saved model, scaler, and expected columns
+model = joblib.load("knn_heart_model.pkl")
+scaler = joblib.load("heart_scaler.pkl")
+expected_columns = joblib.load("heart_columns.pkl")
 
-st.title("🚗 Ford Car Price Predictor")
+st.title("Heart Stroke Prediction by akarsh")
+st.markdown("Provide the following details to check your heart stroke risk:")
 
-# Inputs
+# Collect user input
+age = st.slider("Age", 18, 100, 40)
+sex = st.selectbox("Sex", ["M", "F"])
+chest_pain = st.selectbox("Chest Pain Type", ["ATA", "NAP", "TA", "ASY"])
+resting_bp = st.number_input("Resting Blood Pressure (mm Hg)", 80, 200, 120)
+cholesterol = st.number_input("Cholesterol (mg/dL)", 100, 600, 200)
+fasting_bs = st.selectbox("Fasting Blood Sugar > 120 mg/dL", [0, 1])
+resting_ecg = st.selectbox("Resting ECG", ["Normal", "ST", "LVH"])
+max_hr = st.slider("Max Heart Rate", 60, 220, 150)
+exercise_angina = st.selectbox("Exercise-Induced Angina", ["Y", "N"])
+oldpeak = st.slider("Oldpeak (ST Depression)", 0.0, 6.0, 1.0)
+st_slope = st.selectbox("ST Slope", ["Up", "Flat", "Down"])
 
-year = st.number_input(
-    "Year",
-    min_value=1990,
-    max_value=2030,
-    value=2018
-)
+# When Predict is clicked
+if st.button("Predict"):
 
-mileage = st.number_input(
-    "Mileage",
-    min_value=0,
-    value=30000
-)
+    # Create a raw input dictionary
+    raw_input = {
+        'Age': age,
+        'RestingBP': resting_bp,
+        'Cholesterol': cholesterol,
+        'FastingBS': fasting_bs,
+        'MaxHR': max_hr,
+        'Oldpeak': oldpeak,
+        'Sex_' + sex: 1,
+        'ChestPainType_' + chest_pain: 1,
+        'RestingECG_' + resting_ecg: 1,
+        'ExerciseAngina_' + exercise_angina: 1,
+        'ST_Slope_' + st_slope: 1
+    }
 
-tax = st.number_input(
-    "Tax",
-    min_value=0,
-    value=150
-)
+    # Create input dataframe
+    input_df = pd.DataFrame([raw_input])
 
-mpg = st.number_input(
-    "MPG",
-    min_value=0.0,
-    value=50.0
-)
+    # Fill in missing columns with 0s
+    for col in expected_columns:
+        if col not in input_df.columns:
+            input_df[col] = 0
 
-engineSize = st.number_input(
-    "Engine Size",
-    min_value=0.5,
-    value=1.5
-)
+    # Reorder columns
+    input_df = input_df[expected_columns]
 
-# IMPORTANT:
-# Replace these values with actual values
-# from your dataset
+    # Scale the input
+    scaled_input = input_df.copy()
 
-model_name = st.selectbox(
-    "Model",
-    [
-        "Fiesta",
-        "Focus",
-        "Puma",
-        "Kuga",
-        "EcoSport",
-        "C-MAX",
-        "Mondeo",
-        "Ka+",
-        "Tourneo Custom",
-        "S-MAX",
-        "B-MAX",
-        "Edge",
-        "Tourneo Connect",
-        "Grand C-MAX",
-        "KA",
-        "Galaxy",
-        "Mustang",
-        "Grand Tourneo Connect",
-        "Fusion",
-        "Ranger",
-        "Streetka",
-        "Escort",
-        "Transit Tourneo"
-    ]
-)
+    cols = ['Age','RestingBP','Cholesterol','MaxHR','Oldpeak']
 
-transmission = st.selectbox(
-    "Transmission",
-    [
-        "Automatic",
-        "Manual",
-        "Semi-Auto"
-    ]
-)
-
-fuelType = st.selectbox(
-    "Fuel Type",
-    [
-        "Petrol",
-        "Diesel",
-        "Hybrid",
-        "Electric",
-        "Other"
-    ]
-)
-
-transmission = st.selectbox(
-    "Transmission",
-    [
-        "Manual",
-        "Automatic",
-        "Semi-Auto"
-    ]
-)
-
-fuelType = st.selectbox(
-    "Fuel Type",
-    [
-        "Petrol",
-        "Diesel",
-        "Hybrid"
-    ]
-)
-
-if st.button("Predict Price"):
-
-    input_df = pd.DataFrame({
-        "year":[year],
-        "mileage":[mileage],
-        "tax":[tax],
-        "mpg":[mpg],
-        "engineSize":[engineSize],
-        "model":[model_name],
-        "transmission":[transmission],
-        "fuelType":[fuelType]
-    })
-
-    input_df = pd.get_dummies(
-        input_df,
-        columns=["model","transmission","fuelType"]
+    scaled_input[cols] = scaler.transform(
+        scaled_input[cols]
     )
 
-    input_df = input_df.reindex(
-        columns=feature_columns,
-        fill_value=0
-    )
+    # Make prediction
+    prediction = model.predict(scaled_input)[0]
 
-    cols = [
-        'year',
-        'mileage',
-        'tax',
-        'mpg',
-        'engineSize'
-    ]
-
-    input_df[cols] = scaler.transform(
-        input_df[cols]
-    )
-
-    prediction = model.predict(input_df)
-
-    st.success(
-        f"Estimated Price: £{prediction[0]:,.0f}"
-    )
-    
+    # Show result
+    if prediction == 1:
+        st.error("⚠️ High Risk of Heart Disease")
+    else:
+        st.success("✅ Low Risk of Heart Disease")
